@@ -1,0 +1,7 @@
+variable,description
+x,decimal longitude of observation
+y,decimal latitude of observation
+cell,Spatial cell for observation record
+species,Scientific species of the observed individual
+origin,whether the species is native or naturalised
+bio1-bio12,"climate variables extracted from worldclim, see https://www.worldclim.org/data/bioclim.html. Units for temp are degC*10. Units for rainfall are mm/yr"

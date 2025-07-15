@@ -1,0 +1,159 @@
+---
+title: "Average Rainfall by Species in the Jacksonia Genus"
+subtitle: "Practical 1"
+author: "Jane Maguire"
+date: "2025-03-21"
+format: 
+  html:
+     embed-resources: true
+editor: visual
+---
+
+## Motivation/Genus
+
+The motivation for this study is to estimate the means and confidence intervals of the average rainfall experienced by each species. We also aim to determine whether species within a specific genus differ among their climate preference (measured as annual rainfall) and by how much? I chose to look specifically at the Jacksonia Genus because my name is Jane and both begin with the letters Ja.
+
+## R Packages
+
+```{r, message=FALSE, warning=FALSE}
+#Load R Packages
+library(tidyverse)
+library(easystats)
+```
+
+## Data
+
+We are working with data built off of two open-source datasets; The Atlas of Living Australia and Worldclim. Our dataset uses these open-source dat4asets to provide a collection of all the known observations for plant species in Australia and the climate where each observation was recorded. The complete dataset is extremely large so we are working with a limited version where 100 observations per plant species have been randomly selected.
+
+```{r}
+#Import the Provided Datasets
+plant_data <- read.csv("data/gbif_plants_au.csv")
+genus_data <- read.csv("data/taxa.csv")
+
+#Join Genus Names to Plant Data
+joined_data <- left_join(plant_data, genus_data, by = "species")
+
+#Filter Data to just the Jacksonia Genus
+jacksonia_data <- joined_data |>
+  filter(genus == "Jacksonia")
+```
+
+## Check for Errors in the Dataset
+
+We are focused specifically on the variables species and bio12. The bio12 variable represents the Annual Precipitation. When looking at the bio12 variable values we can see that all the values have less than 2,500 mm/yr of annual precipitation except for 3 values of 10,000. It is very unlikely that the annual precipitation could be a value this high so this tells me that they likely did not have annual precipitation values for these three observations and used 10,000 as a filler value because it is clearly unreasonably high. This tells me that I should filter out these three variables.
+
+There is also one species that only has one observation. The species "Jacksonia thisisanerrorensus". This tells us that there is not enough data to estimate its mean annual precipitation reliably or to compare it meaningfully with other species. We will be running statistical tests on this data and a group such as this with extremely small sample sizes can lead to unreliable results. Therefore, we should filter out this species before performing any analysis.
+
+Lastly when looking at an initial visualization of this data, we can also see that there is a high outlier within the "Jacksonia Ramosissima" species. As this point may also skew our data and provide unreliable results we can also filter out this point.
+
+```{r}
+#Filter out the High Values and the species "Jacksonia thisisanerrorensus"
+filtered_jacksonia_data <- jacksonia_data |>
+  filter(bio12 < 2000, 
+         species != "Jacksonia thisisanerrorensus")
+```
+
+## Statistical Tests
+
+First, we can look at side-by-side boxplots and violin plots that initially show the distribution of average precipitation by species.
+
+```{r}
+#Box Plot
+ggplot(filtered_jacksonia_data, aes(x = species, y = bio12)) +
+  geom_boxplot() +
+  labs(x = "Species",
+         y = "Average Rainfall (mm/yr)",
+         title = "Average Rainfall per year by Species") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#Violin Plots
+ggplot(filtered_jacksonia_data, aes(x = species, y = bio12)) +
+  geom_violin(fill = "lightblue") +
+  geom_jitter(width = 0.3, alpha = 0.6, color = "blue") +
+  labs(x = "Species",
+         y = "Average Rainfall (mm/yr)",
+         title = "Average Rainfall per year by Species") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+We can then fit a linear model to look at the relationship between average precipitation and species.
+
+```{r}
+#Filtered Fit
+filter_fit <- lm(bio12 ~ species, filtered_jacksonia_data)
+```
+
+We then need to check that the assumptions are met for this model.
+
+```{r}
+#Check Assumptions
+check_model(filter_fit)
+```
+
+We see that the assumptions of linearity, normality of residuals, constant variance of residuals, and no major outliers are met. Using our knowledge of the data we can also say that the assumptions independence of points and sampled population of interest are also met. Now that we know all the assumptions are met we can estimate a mean and confidence interval for the average rainfall experienced by each species.
+
+```{r}
+#Means and CI's for each species
+jacksonia_means <- estimate_means(filter_fit, by = "species")
+```
+
+Below are each species means and confidence intervals for average precipitation values.
+
+| Species | Estimated Mean of Average Rainfall | Estimated Confidence Interval of Mean Average Rainfall |
+|----|----|----|
+| Jacksonia angulata | 542.3294 | 502.7175, 581.9412 |
+| Jacksonia condensata | 505.2600 | 473.8191, 536.7009 |
+| Jacksonia epiphyllum | 527.3173 | 483.7166, 570.9180 |
+| Jacksonia fasciculata | 491.5400 | 455.2352, 527.8448 |
+| Jacksonia foliosa | 422.0313 | 366.4510, 477.6115 |
+| Jacksonia ramosissima | 663.1566 | 634.5955, 691.7176 |
+| Jacksonia ramulosa | 389.8542 | 325.6757, 454.0327 |
+| Jacksonia reclinata | 1309.6079 | 1277.3502, 1341.8656 |
+| Jacksonia stackhousei | 1367.8239 | 1320.4249, 1415.2228 |
+| Jacksonia sternbergiana | 708.1350 | 676.6941, 739.5759 |
+
+We also want to test whether the average annual rainfall differs among species and by how much. To do this, we can conduct an ANOVA test to determine whether the mean annual precipitation differs significantly among species. ANOVA helps test whether the observed differences in precipitation across species are statistically significant.
+
+```{r}
+#ANOVA Test
+anova(filter_fit)
+```
+
+From the anova, we get a p value of \< 2.2e-16, indicating a highly significant result. Since this p-value is extremely small, we can conclude that the mean annual precipitation varies significantly among species. To test how much these precipitation values differ among species we can look at the differences among each set of species.
+
+```{r}
+options(width = 100) #For presentation in html output
+#Compare each set of species
+estimate_contrasts(filter_fit, contrast = "species")
+```
+
+The estimate_contrasts() provides us with comparisons of each possible pair of species. If we look at the p-values we can see if each specific set of species have significantly different average precipitation values from each other. If the p-value is less that 0.05, we say that those two species are significantly different. If it is \>0.05 we say that those two species do not have significantly different average rainfall values. By looking at these results majority of the species are significantly different in average precipitation per year. There are only 6 sets of species that are not significantly different. The following 6 pairs are the species that have large p-values leading us to conclude there average precipitation values are not significantly different from each other.
+
+1.  Jacksonia ramulosa and Jacksonia foliosa
+2.  Jacksonia fasciculata and Jacksonia epiphyllum
+3.  Jacksonia fasciculata and Jacksonia condensata
+4.  Jacksonia epiphyllum and Jacksonia condensata
+5.  Jacksonia epiphyllum and Jacksonia angulata
+6.  Jacksonia condensata and Jacksonia angulata
+
+All of the other possible pairs have proven to have significantly different average rainfalls. Many even have p-values of \< 0.001 which is extremely small which indicates even stronger evidence against the null hypothesis which is that average rainfall does not differ across species.
+
+## Graph
+
+We can create a graph to help us visualize the means and confidence intervals across species.
+
+```{r, warning = FALSE}
+#Visualizing the Means and Confidence Intervals
+ggplot(filtered_jacksonia_data, aes(x = species, y = bio12)) +
+  geom_jitter(alpha = 0.6, width = 0.3) + 
+  geom_errorbar(data = jacksonia_means, aes(ymin = CI_low, ymax = CI_high, y = Mean), col = "red", size = 1) +
+  geom_point(data = jacksonia_means, aes(x = species, y = Mean), col = "blue", size = 3) +
+  labs(x = "Species", 
+       y = "Average Rainfall (mm/yr)",
+       title = "Means and Confidence Intervals of Average Rainfall by Species") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Limitations
+
+This dataset does have some limitations. One limitation is that this dataset includes only up to 100 observations per species rather than all known occurrences. This means it may not fully represent the true species distributions. Also if certain species are underrepresented in the full dataset, this could lead to biased estimates of average rainfall due to fewer observations. Similarly, the observations are based on recorded occurrences, which may not fully capture the species' true range. Some regions may have better data collections than others, leading to an uneven distribution of data. Another issue is that while removing the outlier helps clean our data it also removes potentially accurate but rare observations. This might slightly bias results if those high-rainfall cases are genuine. Another thing to consider is that rainfall is just one factor influencing species distribution. Other factors such as soil type, temperature, and competition with other species will also play a role but are not accounted for in this analysis. In future analysis, considering these confounding variables as well will help strengthen our results.

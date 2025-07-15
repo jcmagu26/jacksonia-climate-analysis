@@ -1,0 +1,4 @@
+variable,description
+species,Scientific species of the observed individual
+family,Scientific family of the observed individual
+genus,Scientific genus of the observed individual
